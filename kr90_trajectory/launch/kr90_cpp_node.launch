@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="kr90_trajectory" type="kr90_trajectory_node" name="kr90_moving" output="screen"/>
+</launch>
+

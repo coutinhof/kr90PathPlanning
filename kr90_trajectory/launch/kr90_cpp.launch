@@ -1,0 +1,66 @@
+<launch>
+
+
+
+    <!-- Load the URDF, SRDF and other .yaml configuration files on the param server -->
+<group ns="kp2">
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find kuka_kp2_support)/urdf/kp2hv1100_hw.urdf" />
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+</group>
+    <!-- Reposition the table-->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="virtual_joint_broadcaster_kp2" args="1.73 1.268 0 3.1416 0 0 world kp2_base_link" />
+
+    <!-- Specify the config files to use -->
+    <rosparam ns="kr90_moving" command="load" file="$(find kr90_trajectory)/config/moveit_cpp.yaml" />
+
+    <!-- Planning Pipeline -->
+    <include ns="/kr90_moving/ompl" file="$(find kuka_kr90_moveit)/launch/ompl_planning_pipeline.launch.xml"/>
+
+     <!-- Trajectory execution  -->
+    <include ns="kr90_moving" file="$(find kuka_kr90_moveit)/launch/trajectory_execution.launch.xml">
+      <arg name="moveit_controller_manager" value="fake"/>
+    </include>
+
+    <!-- Load the URDF, SRDF and other .yaml configuration files on the param server -->
+    <include file="$(find kuka_kr90_moveit)/launch/planning_context.launch">
+      <arg name="load_robot_description" value="true"/>
+    </include>
+
+    <!-- Reposition tf for robot root -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="virtual_joint_broadcaster_kr90" args="0 0 0.5 0 0 0 world base_link" />
+
+<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+      <rosparam param="source_list">["/move_group/fake_controller_joint_states"]</rosparam>
+    </node>
+    
+    <!-- Remapping te fake controllers (it publishes in different topics if using movegroup and movegroup is needed for cartesian path-->
+    <remap from="/kr90_moving/fake_controller_joint_states" to="/move_group/fake_controller_joint_states"/>
+
+    <!-- Start robot state publisher -->
+    <node name="robot_state_publisher_kr90" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+    <!-- Launch RViz -->
+    <node name="$(anon rviz)" pkg="rviz" type="rviz" respawn="false"
+      args="-d $(find kr90_trajectory)/config/moveit_cpp_tutorial2.rviz" output="screen">
+      <rosparam command="load" file="$(find kuka_kr90_moveit)/config/kinematics.yaml"/>
+      <rosparam command="load" file="$(find kuka_kp2_moveit)/config/kinematics.yaml"/>
+    </node>
+
+    <!-- specify the planning pipeline -->
+    <arg name="pipeline" default="ompl" />
+    <!-- By default, we are not in debug mode -->
+    <arg name="debug" default="false" />
+
+    <include file="$(find kuka_kr90_moveit)/launch/move_group.launch">
+      <arg name="allow_trajectory_execution" value="true"/>
+      <arg name="fake_execution" value="true"/>
+      <arg name="info" value="true"/>
+      <arg name="debug" value="$(arg debug)"/>
+      <arg name="pipeline" value="$(arg pipeline)"/>
+    </include>
+
+    <include file="$(find kr90_trajectory)/launch/kr90_cpp_node.launch"/>
+
+</launch>
+
